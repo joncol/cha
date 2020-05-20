@@ -18,33 +18,33 @@
 
 (require 'dash)
 (require 'dash-functional)
-(require 'cl-lib)
 (require 'ob-core)
 (require 's)
+(require 'url)
 
 ;;; Code:
 
-(defun vec->list (vec)
+(defun cha--vec->list (vec)
   "Convert vector `VEC' to a list."
   (append vec nil))
 
-(defun list->alist (list)
+(defun cha--list->alist (list)
   "Convert `LIST' (of even length) into a list of dotted pairs (an alist)."
   (->> list (-partition 2) (-map (lambda (pair)
                                    `(,(car pair) . ,(cadr pair))))))
 
-(defvar clubhouse-api-team-name nil)
+(defvar cha-clubhouse-default-project nil)
 
-(defvar clubhouse-api-default-project nil)
+(defvar cha-clubhouse-api-auth-token-path nil)
 
-(defvar clubhouse-api-auth-token-path nil)
+(defvar cha-clubhouse-api-auth-token nil)
 
-(defvar clubhouse-api-auth-token nil)
+(defvar cha-clubhouse-dry-run-mode nil)
 
-(defun decrypt-file-contents (path)
+(defun cha--decrypt-file-contents (path)
   "Return the contents of file at `PATH', gpg-decrypted."
   (save-mark-and-excursion
-    (let ((temp-file (make-temp-file "decrypt-file-contents")))
+    (let ((temp-file (make-temp-file "cha--decrypt-file-contents")))
       (unwind-protect
           (progn
             (epa-decrypt-file path temp-file)
@@ -53,81 +53,84 @@
               (buffer-string)))
         (delete-file temp-file)))))
 
-(defun cached-clubhouse-api-auth-token ()
+(defun cha--cached-clubhouse-api-auth-token ()
   "Return the Clubhouse API auth token. Caches the result."
-  (or clubhouse-api-auth-token
-      (setq clubhouse-api-auth-token (decrypt-file-contents clubhouse-api-auth-token-path))))
+  (or cha-clubhouse-api-auth-token
+      (setq cha-clubhouse-api-auth-token
+            (cha--decrypt-file-contents cha-clubhouse-api-auth-token-path))))
 
-(defvar clubhouse-api-base-url* "https://api.clubhouse.io/api/v2")
+(defvar cha--clubhouse-api-base-url* "https://api.clubhouse.io/api/v2")
 
-(defun clubhouse-api-auth-url (url &optional params)
+(defun cha--auth-url (url &optional params)
   "Return AUTH url made up of `URL' and `PARAMS'."
   (concat url
           "?"
           (url-build-query-string
-           (cons `("token" ,(cached-clubhouse-api-auth-token)) params))))
+           (cons `("token" ,(cha--cached-clubhouse-api-auth-token)) params))))
 
-(defun clubhouse-api-baseify-url (url)
-  (if (s-starts-with? clubhouse-api-base-url* url) url
-    (concat clubhouse-api-base-url*
+(defun cha--baseify-url (url)
+  "Add base URL to `URL', if necessary."
+  (if (s-starts-with? cha--clubhouse-api-base-url* url) url
+    (concat cha--clubhouse-api-base-url*
             (if (s-starts-with? "/" url) url
               (concat "/" url)))))
 
-(defvar clubhouse-api-dry-run-mode nil)
-
-(cl-defun clubhouse-api-request (method path &key data (params '()))
+(cl-defun cha--api-request (method path &key data (params '()))
   "Make a request towards a Clubhouse API.
 The actual route to call is determined by `METHOD' and `PATH'.
 `DATA' is passed as JSON body. Also, additional `PARAMS' can be set."
   (let* ((url-request-method method)
          (url-request-extra-headers '(("Content-Type" . "application/json")))
          (url-request-data data)
-         (buf))
-    (setq url (-> path
-                  (clubhouse-api-baseify-url)
-                  (clubhouse-api-auth-url params)))
-    (if clubhouse-api-dry-run-mode
+         (url (-> path
+                  (cha--baseify-url)
+                  (cha--auth-url params))))
+    (if cha-clubhouse-dry-run-mode
         (message "method: %s path: %s data: %s" method path data)
       (progn
-        (setq buf (url-retrieve-synchronously url))
-
-        (with-current-buffer buf
-          (if (string= "HTTP/1.1 2" (buffer-substring-no-properties (point-min) (+ (point-min) (length "HTTP/1.1 2"))))
+        (with-current-buffer (url-retrieve-synchronously url)
+          (if (string= "HTTP/1.1 2"
+                       (buffer-substring-no-properties
+                        (point-min)
+                        (+ (point-min)
+                           (length "HTTP/1.1 2"))))
               (progn
                 (goto-char url-http-end-of-headers)
                 (prog1 (json-read)
                   (kill-buffer)))
-            (error "HTTP Request Failed: %s %s %s %s" method path data (buffer-substring-no-properties (point-min) (point-max)))))))))
+            (error "HTTP Request Failed: %s %s %s %s" method path data
+                   (buffer-substring-no-properties (point-min)
+                                                   (point-max)))))))))
 
 (defun clubhouse-api-get-story-op (story-id)
   "Retrieve the story with ID `STORY-ID' from Clubhouse."
-  (clubhouse-api-request "GET" (format "stories/%d" story-id)))
+  (cha--api-request "GET" (format "stories/%d" story-id)))
 
 (defun clubhouse-api-update-story-op (story-id &rest properties)
-  (clubhouse-api-request "PUT" (format "stories/%d" story-id)
-                         :data (-> properties list->alist json-encode (encode-coding-string 'utf-8))))
+  (cha--api-request "PUT" (format "stories/%d" story-id)
+                    :data (-> properties cha--list->alist json-encode (encode-coding-string 'utf-8))))
 
 (defun clubhouse-api-create-story-op (project-id name &rest properties)
-  (clubhouse-api-request "POST" "stories"
-                         :data (-> properties
-                                   (-concat `(:project_id ,project-id :name ,name))
-                                   list->alist
-                                   json-encode
-                                   (encode-coding-string 'utf-8))))
+  (cha--api-request "POST" "stories"
+                    :data (-> properties
+                              (-concat `(:project_id ,project-id :name ,name))
+                              cha--list->alist
+                              json-encode
+                              (encode-coding-string 'utf-8))))
 
 ;; TODO: This needs to support continuation in the form of the `nextToken` stuff in the search result
 (defun clubhouse-api-search-stories-op (query)
-  (vec->list
+  (cha--vec->list
    (alist-get 'data
-              (clubhouse-api-request "GET" "search/stories"
-                                     :data (-> `((:query . ,query))
-                                               json-encode
-                                               (encode-coding-string 'utf-8))))))
+              (cha--api-request "GET" "search/stories"
+                                :data (-> `((:query . ,query))
+                                          json-encode
+                                          (encode-coding-string 'utf-8))))))
 
 (cl-defun to-id-name-pairs
     (seq &optional (id-attr 'id) (name-attr 'name))
   (->> seq
-       (vec->list)
+       (cha--vec->list)
        (-map (lambda (resource)
                (cons (alist-get id-attr   resource)
                      (alist-get name-attr resource))))))
@@ -141,10 +144,10 @@ The actual route to call is determined by `METHOD' and `PATH'.
     (resource &optional
               (id-attr 'id)
               (name-attr 'name))
-  "Returns the given resource from clubhouse as (id . name) pairs"
-  (let ((resp-json (clubhouse-api-request "GET" resource)))
+  "Return the given resource from clubhouse as (id . name) pairs"
+  (let ((resp-json (cha--api-request "GET" resource)))
     (-> resp-json
-        (vec->list)
+        (cha--vec->list)
         (reject-archived)
         (to-id-name-pairs id-attr name-attr))))
 
@@ -179,8 +182,8 @@ The actual route to call is determined by `METHOD' and `PATH'.
 
 (defun clubhouse-api-project-stories-full (project-id)
   "Retrieves the non-archived stories for a project, including all their attributes."
-  (-> (clubhouse-api-request "GET" (format "projects/%d/stories" project-id))
-      (vec->list)
+  (-> (cha--api-request "GET" (format "projects/%d/stories" project-id))
+      (cha--vec->list)
       (reject-archived)))
 
 (defvar-local clubhouse-api-workflow-cache nil)
@@ -189,18 +192,18 @@ The actual route to call is determined by `METHOD' and `PATH'.
   "Retrieves the list of workflows."
   (or clubhouse-api-workflow-cache
       (setq-local clubhouse-api-workflow-cache
-                  (vec->list (clubhouse-api-request "GET" "workflows")))))
+                  (cha--vec->list (cha--api-request "GET" "workflows")))))
 
 (defun clubhouse-api-lookup-workflow-state (workflow-state-id)
   "Returns the workflow state given its ID."
   (->> (clubhouse-api-workflows)
-       (-mapcat (lambda (wf) (vec->list (alist-get 'states wf))))
+       (-mapcat (lambda (wf) (cha--vec->list (alist-get 'states wf))))
        (-first (lambda (state) (= workflow-state-id (alist-get 'id state))))))
 
 (defun clubhouse-api-lookup-workflow-state-name (workflow-state-name)
   "Returns the workflow state given its name."
   (->> (clubhouse-api-workflows)
-       (-mapcat (lambda (wf) (vec->list (alist-get 'states wf))))
+       (-mapcat (lambda (wf) (cha--vec->list (alist-get 'states wf))))
        (-first (lambda (state) (string= workflow-state-name (alist-get 'name state))))))
 
 (defun clubhouse-api-pair-name (x)
@@ -226,7 +229,7 @@ The actual route to call is determined by `METHOD' and `PATH'.
                                         t
                                         nil
                                         nil
-                                        clubhouse-api-default-project)))
+                                        cha-clubhouse-default-project)))
     (clubhouse-api-find-pair-by-name project-name projects)))
 
 (defun clubhouse-api-prompt-for-epic ()
@@ -387,8 +390,10 @@ The actual route to call is determined by `METHOD' and `PATH'.
     (clubhouse-api-update-story-properties story)
     (set-buffer-modified-p nil)))
 
-(defun clubhouse-api-edit-story* (story)
-  "Implementation side of clubhouse-api-edit-story"
+(defun cha--edit-story (story)
+  "Implementation side of cha-edit-story.
+
+Edit provided `STORY'"
   (let* ((story-id (alist-get 'id story))
          (story-name (alist-get 'name story))
          ;; Changing the major mode blows away buffer locals,
@@ -405,8 +410,9 @@ The actual route to call is determined by `METHOD' and `PATH'.
         (clubhouse-api-story-edit-minor-mode 1)
         (clubhouse-api-populate-story-edit-buffer story)))))
 
-(defun clubhouse-api-edit-story (story-number)
-  "Prompts for a story, then pops up a buffer with its
+(defun cha-edit-story (story-number)
+  "Edit an existing Clubhouse story.
+Prompt for a story (or use `STORY-NUMBER'), then pop up a buffer with its
 description ready for editing."
   (interactive "P")
   (let* ((story-id (if story-number
@@ -418,10 +424,10 @@ description ready for editing."
                               string-to-number)
                          (clubhouse-api-pair-id (clubhouse-api-prompt-for-story)))))
          (story (clubhouse-api-get-story-op story-id)))
-    (clubhouse-api-edit-story* story)))
+    (cha--edit-story story)))
 
-(defun clubhouse-api-create-story ()
-  "Creates a new story buffer and sets it up for saving."
+(defun cha-create-story ()
+  "Create a new Clubhouse story."
   (interactive)
   (save-excursion
     (clubhouse-api-cache-description)
@@ -441,17 +447,18 @@ description ready for editing."
                            :epic_id (clubhouse-api-pair-id epic)
                            :labels lbls)))
       (message "Story %d created" (alist-get 'id created-story))
-      ;; (clubhouse-api-edit-story* created-story)
+      ;; (cha--edit-story created-story)
       (org-set-property "ClubhouseUrl" (alist-get 'app_url created-story)))))
 
 (defun clubhouse-api-create-label-params (label-names)
   "Create a list of alists for labels with names LABEL-NAMES."
-  (-map (lambda (x) (list->alist `(:name ,x))) label-names))
+  (-map (lambda (x) (cha--list->alist `(:name ,x))) label-names))
 
 (defun clubhouse-api-refresh-story (force?)
-  "Update the current story buffer with the latest online version
-  of the story. Fails with an error message if the local buffer
-  contains changes unless a prefix arg is specified."
+  "Update the current story.
+Update the current story buffer with the latest online version of the story.
+Fails with an error message if the local buffer contains changes unless `FORCE?`
+is true."
   (interactive "P")
   (let* ((story-id (-> "ID"
                        clubhouse-api-story-edit-get-header-value
@@ -561,7 +568,7 @@ containing `stories`."
                      (map (make-sparse-keymap))
                      (open-story #'(lambda ()
                                      (interactive)
-                                     (clubhouse-api-edit-story* (clubhouse-api-get-story-op (alist-get 'id story))))))
+                                     (cha--edit-story (clubhouse-api-get-story-op (alist-get 'id story))))))
                 (define-key map (kbd "C-c C-o") open-story)
                 (define-key map (kbd "RET") open-story)
                 (define-key map (kbd "<mouse-2>") open-story)
