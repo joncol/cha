@@ -1,4 +1,4 @@
-;;; cha.el --- Clubhouse API integration for org-mode
+;;; cha.el --- Clubhouse API integration for org-mode -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2020 Jonas Collberg
 
@@ -44,7 +44,7 @@
 (defun decrypt-file-contents (path)
   "Return the contents of file at `PATH', gpg-decrypted."
   (save-mark-and-excursion
-    (lexical-let ((temp-file (make-temp-file "decrypt-file-contents")))
+    (let ((temp-file (make-temp-file "decrypt-file-contents")))
       (unwind-protect
           (progn
             (epa-decrypt-file path temp-file)
@@ -219,52 +219,52 @@ The actual route to call is determined by `METHOD' and `PATH'.
 
 (defun clubhouse-api-prompt-for-project ()
   "Returns an (id . name) pair for a project selected by the user."
-  (lexical-let* ((projects (clubhouse-api-project-list))
-                 (project-name (completing-read "Select a project: "
-                                                (-map #'clubhouse-api-pair-name projects)
-                                                nil
-                                                t
-                                                nil
-                                                nil
-                                                clubhouse-api-default-project)))
+  (let* ((projects (clubhouse-api-project-list))
+         (project-name (completing-read "Select a project: "
+                                        (-map #'clubhouse-api-pair-name projects)
+                                        nil
+                                        t
+                                        nil
+                                        nil
+                                        clubhouse-api-default-project)))
     (clubhouse-api-find-pair-by-name project-name projects)))
 
 (defun clubhouse-api-prompt-for-epic ()
   "Returns an (id . name) pair for an epic selected by the user."
-  (lexical-let* ((epics (clubhouse-api-epics))
-                 (epic-name (completing-read "Select an epic: "
-                                             (-insert-at 0 "[None]" (-map #'clubhouse-api-pair-name epics))
-                                             nil
-                                             nil
-                                             nil
-                                             nil)))
+  (let* ((epics (clubhouse-api-epics))
+         (epic-name (completing-read "Select an epic: "
+                                     (-insert-at 0 "[None]" (-map #'clubhouse-api-pair-name epics))
+                                     nil
+                                     nil
+                                     nil
+                                     nil)))
     (clubhouse-api-find-pair-by-name epic-name epics)))
 
 (defun clubhouse-api-prompt-for-label ()
   "Return an (id, name) pair for a label selected by the user."
-  (lexical-let* ((lbls (clubhouse-api-fetch-as-id-name-pairs "labels"))
-                 (label-name (completing-read
-                              "Select a label: "
-                              (-insert-at 0
-                                          "[None]"
-                                          (-map #'clubhouse-api-pair-name
-                                                lbls)))))
+  (let* ((lbls (clubhouse-api-fetch-as-id-name-pairs "labels"))
+         (label-name (completing-read
+                      "Select a label: "
+                      (-insert-at 0
+                                  "[None]"
+                                  (-map #'clubhouse-api-pair-name
+                                        lbls)))))
     (clubhouse-api-find-pair-by-name label-name lbls)))
 
 (defun clubhouse-api-prompt-for-story (&optional project-id)
   "Returns an (id . name) pair for a story selected by the user."
-  (lexical-let* ((project-id (or project-id (clubhouse-api-pair-id (clubhouse-api-prompt-for-project))))
-                 (stories (clubhouse-api-project-stories project-id))
-                 (story-map (lexical-let* ((story-map (make-hash-table :test 'equal)))
-                              (-each stories
-                                (lambda (story)
-                                  (puthash (format "#%d: %s"
-                                                   (clubhouse-api-pair-id story)
-                                                   (clubhouse-api-pair-name story))
-                                           story
-                                           story-map)))
-                              story-map))
-                 (story-name (completing-read "Select a story: " (hash-table-keys story-map))))
+  (let* ((project-id (or project-id (clubhouse-api-pair-id (clubhouse-api-prompt-for-project))))
+         (stories (clubhouse-api-project-stories project-id))
+         (story-map (let* ((story-map (make-hash-table :test 'equal)))
+                      (-each stories
+                        (lambda (story)
+                          (puthash (format "#%d: %s"
+                                           (clubhouse-api-pair-id story)
+                                           (clubhouse-api-pair-name story))
+                                   story
+                                   story-map)))
+                      story-map))
+         (story-name (completing-read "Select a story: " (hash-table-keys story-map))))
     (gethash story-name story-map)))
 
 (defun clubhouse-api-prompt-for-story-name ()
@@ -338,18 +338,18 @@ The actual route to call is determined by `METHOD' and `PATH'.
     (org-set-property "ID" (number-to-string (alist-get 'id story)))
     (org-set-property "URL" (alist-get 'app_url story))
     (org-set-property "Project"
-                      (lexical-let* ((project-id (alist-get 'project_id story)))
+                      (let* ((project-id (alist-get 'project_id story)))
                         (format "%d: %s"
                                 project-id
                                 (clubhouse-api-pair-name
                                  (clubhouse-api-find-pair-by-id project-id
                                                                 (clubhouse-api-project-list))))))
     (org-set-property "StoryType" (alist-get 'story_type story))
-    (org-set-property "Estimate" (lexical-let ((estimate (alist-get 'estimate story)))
+    (org-set-property "Estimate" (let ((estimate (alist-get 'estimate story)))
                                    (if estimate
                                        (number-to-string estimate)
                                      "")))
-    (org-set-property "Epic" (lexical-let ((epic-id (alist-get 'epic_id story)))
+    (org-set-property "Epic" (let ((epic-id (alist-get 'epic_id story)))
                                (if epic-id
                                    (format "%d: %s"
                                            epic-id
@@ -367,8 +367,8 @@ The actual route to call is determined by `METHOD' and `PATH'.
 
 (defun clubhouse-api-populate-story-edit-buffer (story)
   "Populates a story edit buffer with the contents of a story."
-  (lexical-let* ((story-id (alist-get 'id story))
-                 (story-name (alist-get 'name story)))
+  (let* ((story-id (alist-get 'id story))
+         (story-name (alist-get 'name story)))
     (erase-buffer)
     (insert (format "* %d: %s\n" story-id story-name))
     (insert "** Description\n"
@@ -389,18 +389,18 @@ The actual route to call is determined by `METHOD' and `PATH'.
 
 (defun clubhouse-api-edit-story* (story)
   "Implementation side of clubhouse-api-edit-story"
-  (lexical-let* ((story-id (alist-get 'id story))
-                 (story-name (alist-get 'name story))
-                 ;; Changing the major mode blows away buffer locals,
-                 ;; so we preseve this one
-                 (last-projects (or clubhouse-api-last-project-list
-                                    (clubhouse-api-project-list))))
+  (let* ((story-id (alist-get 'id story))
+         (story-name (alist-get 'name story))
+         ;; Changing the major mode blows away buffer locals,
+         ;; so we preseve this one
+         (last-projects (or clubhouse-api-last-project-list
+                            (clubhouse-api-project-list))))
     (pop-to-buffer (format "Clubhouse Story %d: %s" story-id story-name))
     (org-mode)
     (setq-local clubhouse-api-last-project-list last-projects)
-    (lexical-let* ((modified? (buffer-modified-p))
-                   (confirmed? (or (not modified?)
-                                   (yes-or-no-p "Buffer has been modified. Changes will be lost. Proceed anyway? "))))
+    (let* ((modified? (buffer-modified-p))
+           (confirmed? (or (not modified?)
+                           (yes-or-no-p "Buffer has been modified. Changes will be lost. Proceed anyway? "))))
       (when confirmed?
         (clubhouse-api-story-edit-minor-mode 1)
         (clubhouse-api-populate-story-edit-buffer story)))))
@@ -409,15 +409,15 @@ The actual route to call is determined by `METHOD' and `PATH'.
   "Prompts for a story, then pops up a buffer with its
 description ready for editing."
   (interactive "P")
-  (lexical-let* ((story-id (if story-number
-                               (read-number "Story number: ")
-                             (or (->> (org-entry-get nil "ClubhouseUrl")
-                                      (s-split "/" )
-                                      last
-                                      car
-                                      string-to-number)
-                                 (clubhouse-api-pair-id (clubhouse-api-prompt-for-story)))))
-                 (story (clubhouse-api-get-story-op story-id)))
+  (let* ((story-id (if story-number
+                       (read-number "Story number: ")
+                     (or (->> (org-entry-get nil "ClubhouseUrl")
+                              (s-split "/" )
+                              last
+                              car
+                              string-to-number)
+                         (clubhouse-api-pair-id (clubhouse-api-prompt-for-story)))))
+         (story (clubhouse-api-get-story-op story-id)))
     (clubhouse-api-edit-story* story)))
 
 (defun clubhouse-api-create-story ()
@@ -425,21 +425,21 @@ description ready for editing."
   (interactive)
   (save-excursion
     (clubhouse-api-cache-description)
-    (lexical-let* ((story-name (clubhouse-api-prompt-for-story-name))
-                   (project (clubhouse-api-prompt-for-project))
-                   (story-type (clubhouse-api-prompt-for-story-type))
-                   (epic (clubhouse-api-prompt-for-epic))
-                   (lbls (clubhouse-api-create-label-params
-                          (org-get-tags nil t)))
-                   ;; (estimate (read-number "Estimate: "))
-                   (created-story (clubhouse-api-create-story-op
-                                   (clubhouse-api-pair-id project)
-                                   story-name
-                                   :story_type story-type
-                                   :description clubhouse-api-story-description
-                                   ;; :estimate estimate
-                                   :epic_id (clubhouse-api-pair-id epic)
-                                   :labels lbls)))
+    (let* ((story-name (clubhouse-api-prompt-for-story-name))
+           (project (clubhouse-api-prompt-for-project))
+           (story-type (clubhouse-api-prompt-for-story-type))
+           (epic (clubhouse-api-prompt-for-epic))
+           (lbls (clubhouse-api-create-label-params
+                  (org-get-tags nil t)))
+           ;; (estimate (read-number "Estimate: "))
+           (created-story (clubhouse-api-create-story-op
+                           (clubhouse-api-pair-id project)
+                           story-name
+                           :story_type story-type
+                           :description clubhouse-api-story-description
+                           ;; :estimate estimate
+                           :epic_id (clubhouse-api-pair-id epic)
+                           :labels lbls)))
       (message "Story %d created" (alist-get 'id created-story))
       ;; (clubhouse-api-edit-story* created-story)
       (org-set-property "ClubhouseUrl" (alist-get 'app_url created-story)))))
@@ -453,12 +453,12 @@ description ready for editing."
   of the story. Fails with an error message if the local buffer
   contains changes unless a prefix arg is specified."
   (interactive "P")
-  (lexical-let* ((story-id (-> "ID"
-                               clubhouse-api-story-edit-get-header-value
-                               string-to-number))
-                 (modified? (buffer-modified-p))
-                 (confirmed? (or (not modified?)
-                                 force?)))
+  (let* ((story-id (-> "ID"
+                       clubhouse-api-story-edit-get-header-value
+                       string-to-number))
+         (modified? (buffer-modified-p))
+         (confirmed? (or (not modified?)
+                         force?)))
     (if (not confirmed?)
         (message "Story contains local edits that would be overwritten. Not refreshing.")
       (progn
@@ -503,25 +503,25 @@ description ready for editing."
 (defun clubhouse-api-save-story (&optional quit)
   "Save a story by sending it to Clubhouse via their API, and optionally QUIT."
   (interactive)
-  (lexical-let* ((story-id (-> "ID"
-                               clubhouse-api-story-edit-get-header-value
-                               string-to-number))
-                 (story (clubhouse-api-get-story-op story-id))
-                 (last-updated (clubhouse-api-story-edit-get-header-value "LastUpdated")))
+  (let* ((story-id (-> "ID"
+                       clubhouse-api-story-edit-get-header-value
+                       string-to-number))
+         (story (clubhouse-api-get-story-op story-id))
+         (last-updated (clubhouse-api-story-edit-get-header-value "LastUpdated")))
     (if (string< last-updated (alist-get 'updated_at story))
         (message "Story has changed since loaded. Refusing to save. TODO: Give option to merge or whatever.")
-      (lexical-let* ((lbls (clubhouse-api-story-edit-get-header-values "Labels"))
-                     (updated-story (clubhouse-api-update-story-op
-                                     story-id
-                                     :description (clubhouse-api-story-edit-get-description)
-                                     :story_type (clubhouse-api-story-edit-get-header-value "StoryType")
-                                     :name (clubhouse-api-story-edit-get-story-name)
-                                     :estimate (lexical-let ((estimate (clubhouse-api-story-edit-get-header-value "Estimate")))
-                                                 (when estimate
-                                                   (string-to-number estimate)))
-                                     :labels (clubhouse-api-create-label-params lbls)
-                                     :workflow_state_id (lexical-let ((workflow-state-name (clubhouse-api-story-edit-get-header-value "State")))
-                                                          (alist-get 'id (clubhouse-api-lookup-workflow-state-name workflow-state-name))))))
+      (let* ((lbls (clubhouse-api-story-edit-get-header-values "Labels"))
+             (updated-story (clubhouse-api-update-story-op
+                             story-id
+                             :description (clubhouse-api-story-edit-get-description)
+                             :story_type (clubhouse-api-story-edit-get-header-value "StoryType")
+                             :name (clubhouse-api-story-edit-get-story-name)
+                             :estimate (let ((estimate (clubhouse-api-story-edit-get-header-value "Estimate")))
+                                         (when estimate
+                                           (string-to-number estimate)))
+                             :labels (clubhouse-api-create-label-params lbls)
+                             :workflow_state_id (let ((workflow-state-name (clubhouse-api-story-edit-get-header-value "State")))
+                                                  (alist-get 'id (clubhouse-api-lookup-workflow-state-name workflow-state-name))))))
         (clubhouse-api-update-story-properties updated-story)
         (set-buffer-modified-p nil)
         (message "Story successfully updated.")
@@ -540,7 +540,7 @@ containing `stories`."
     (-each (->> stories
                 (-group-by (lambda (story) (alist-get 'workflow_state_id story))))
       (lambda (group)
-        (lexical-let* ((workflow-state-id (first group)))
+        (let* ((workflow-state-id (first group)))
           (insert "** "
                   (->> (clubhouse-api-lookup-workflow-state workflow-state-id)
                        (alist-get 'name))
@@ -556,12 +556,12 @@ containing `stories`."
                       "]] :"
                       (alist-get 'story_type story)
                       ":\n")
-              (lexical-let* ((start (point))
-                             (story story)
-                             (map (make-sparse-keymap))
-                             (open-story #'(lambda ()
-                                             (interactive)
-                                             (clubhouse-api-edit-story* (clubhouse-api-get-story-op (alist-get 'id story))))))
+              (let* ((start (point))
+                     (story story)
+                     (map (make-sparse-keymap))
+                     (open-story #'(lambda ()
+                                     (interactive)
+                                     (clubhouse-api-edit-story* (clubhouse-api-get-story-op (alist-get 'id story))))))
                 (define-key map (kbd "C-c C-o") open-story)
                 (define-key map (kbd "RET") open-story)
                 (define-key map (kbd "<mouse-2>") open-story)
@@ -579,9 +579,9 @@ containing `stories`."
 (defun clubhouse-api-browse-project ()
   "Pops up an org buffer that shows all the stories in a project."
   (interactive)
-  (lexical-let* ((project (clubhouse-api-prompt-for-project))
-                 (project-id (clubhouse-api-pair-id project))
-                 (project-name (clubhouse-api-pair-name project)))
+  (let* ((project (clubhouse-api-prompt-for-project))
+         (project-id (clubhouse-api-pair-id project))
+         (project-name (clubhouse-api-pair-name project)))
     (clubhouse-api-pop-to-stories-buffer (format "Clubhouse Project %d: %s" project-id project-name)
                                          (clubhouse-api-project-stories-full project-id))))
 
