@@ -5,7 +5,7 @@
 ;; Author: Jonas Collberg <jonas.collberg@gmail.com>
 ;; Version: 1.0
 ;; URL: https://github.com/joncol/cha.el
-;; Package-Requires: ((dash "2.17.0") (dash-functional "1.2.0") (emacs "25.1") (ox-gfm "20170628.2102") (s "1.12.0"))
+;; Package-Requires: ((dash "2.17.0") (dash-functional "1.2.0") (emacs "26.1") (ox-gfm "20170628.2102") (s "1.12.0"))
 ;; Keywords: tools
 
 ;;; Commentary:
@@ -290,6 +290,12 @@ The actual route to call is determined by `METHOD' and `PATH'.
 
 (defun cha--cache-description ()
   "Get the text under the current headline."
+
+  ;; If were not at a headline, it means we're in the descrition of the story,
+  ;; so move up to the previous headline.
+  (when (not (eq 'headline (org-element-type (org-element-at-point))))
+    (org-previous-visible-heading 1))
+
   (let ((end-of-contents (or (org-element-property
                               :contents-end
                               (org-element-at-point))
