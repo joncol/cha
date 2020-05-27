@@ -271,7 +271,7 @@ The actual route to call is determined by `METHOD' and `PATH'.
     (gethash story-name story-map)))
 
 (defun clubhouse-api-prompt-for-story-name ()
-  "Prompts for and returns a story name."
+  "Prompt for, and return a story name."
   (read-string "Story name: " (org-entry-get nil "ITEM")))
 
 (defvar-local clubhouse-api-story-description "")
