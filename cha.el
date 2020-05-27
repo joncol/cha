@@ -274,9 +274,9 @@ The actual route to call is determined by `METHOD' and `PATH'.
   "Prompt for, and return a story name."
   (read-string "Story name: " (org-entry-get nil "ITEM")))
 
-(defvar-local clubhouse-api-story-description "")
+(defvar-local cha--story-description "")
 
-(defun clubhouse-api-convert-org-mode-to-markdown (org-mode-string)
+(defun cha--convert-org-mode-to-markdown (org-mode-string)
   "Convert `ORG-MODE-STRING' to markdown."
   (with-temp-buffer
     (setq-local org-export-with-toc nil)
@@ -288,7 +288,7 @@ The actual route to call is determined by `METHOD' and `PATH'.
     (with-current-buffer "*Org GFM Export*"
       (string-trim (buffer-string)))))
 
-(defun clubhouse-api-cache-description ()
+(defun cha--cache-description ()
   "Get the text under the current headline."
   (let ((end-of-contents (or (org-element-property
                               :contents-end
@@ -308,10 +308,10 @@ The actual route to call is determined by `METHOD' and `PATH'.
     ;; We're now at the beginning of the section text.
 
     ;; Convert the description to markdown format and cache it for later use.
-    (setq clubhouse-api-story-description
+    (setq cha--story-description
           (let ((s (buffer-substring-no-properties (point)
                                                    (- end-of-contents 1))))
-            (clubhouse-api-convert-org-mode-to-markdown
+            (cha--convert-org-mode-to-markdown
              (if (s-contains? ":LOGBOOK:" s)
                  (s-left (s-index-of ":LOGBOOK:" s) s)
                s))))))
@@ -430,7 +430,7 @@ description ready for editing."
   "Create a new Clubhouse story."
   (interactive)
   (save-excursion
-    (clubhouse-api-cache-description)
+    (cha--cache-description)
     (let* ((story-name (cha--prompt-for-story-name))
            (project (clubhouse-api-prompt-for-project))
            (story-type (clubhouse-api-prompt-for-story-type))
@@ -442,7 +442,7 @@ description ready for editing."
                            (clubhouse-api-pair-id project)
                            story-name
                            :story_type story-type
-                           :description clubhouse-api-story-description
+                           :description cha--story-description
                            ;; :estimate estimate
                            :epic_id (clubhouse-api-pair-id epic)
                            :labels lbls)))
