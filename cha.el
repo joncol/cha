@@ -270,7 +270,7 @@ The actual route to call is determined by `METHOD' and `PATH'.
          (story-name (completing-read "Select a story: " (hash-table-keys story-map))))
     (gethash story-name story-map)))
 
-(defun clubhouse-api-prompt-for-story-name ()
+(defun cha--prompt-for-story-name ()
   "Prompt for, and return a story name."
   (read-string "Story name: " (org-entry-get nil "ITEM")))
 
@@ -431,7 +431,7 @@ description ready for editing."
   (interactive)
   (save-excursion
     (clubhouse-api-cache-description)
-    (let* ((story-name (clubhouse-api-prompt-for-story-name))
+    (let* ((story-name (cha--prompt-for-story-name))
            (project (clubhouse-api-prompt-for-project))
            (story-type (clubhouse-api-prompt-for-story-type))
            (epic (clubhouse-api-prompt-for-epic))
