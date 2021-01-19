@@ -299,28 +299,35 @@ The actual route to call is determined by `METHOD' and `PATH'.
   (let ((end-of-contents (or (org-element-property
                               :contents-end
                               (org-element-at-point))
-                             (point-max))))
-    (goto-char (org-element-property :contents-begin (org-element-at-point)))
+                             (point-max)))
+        (beginning-of-contents
+         (org-element-property :contents-begin (org-element-at-point))))
+    (if beginning-of-contents
+        (progn
+          (goto-char beginning-of-contents)
 
-    ;; Point is now on the first character after the headline. Find out what
-    ;; type of element is here using org-element-at-point.
-    (let* ((first-element (org-element-at-point)))
-      ;; If this is a property drawer we need to skip over it. It will have an
-      ;; :end property containing the buffer location of the first character
-      ;; after the property drawer. Go there if necessary.
-      (when (eq 'property-drawer (car first-element))
-        (goto-char (org-element-property :end first-element))))
+          ;; Point is now on the first character after the headline. Find out
+          ;; what type of element is here using org-element-at-point.
+          (let* ((first-element (org-element-at-point)))
+            ;; If this is a property drawer we need to skip over it. It will
+            ;; have an :end property containing the buffer location of the first
+            ;; character after the property drawer. Go there if necessary.
+            (when (eq 'property-drawer (car first-element))
+              (goto-char (org-element-property :end first-element))))
 
-    ;; We're now at the beginning of the section text.
+          ;; We're now at the beginning of the section text.
 
-    ;; Convert the description to markdown format and cache it for later use.
-    (setq cha--story-description
-          (let ((s (buffer-substring-no-properties (point)
-                                                   (- end-of-contents 1))))
-            (cha--convert-org-mode-to-markdown
-             (if (s-contains? ":LOGBOOK:" s)
-                 (s-left (s-index-of ":LOGBOOK:" s) s)
-               s))))))
+          ;; Convert the description to markdown format and cache it for later
+          ;; use.
+          (setq cha--story-description
+                (let ((s
+                       (buffer-substring-no-properties (point)
+                                                       (- end-of-contents 1))))
+                  (cha--convert-org-mode-to-markdown
+                   (if (s-contains? ":LOGBOOK:" s)
+                       (s-left (s-index-of ":LOGBOOK:" s) s)
+                     s)))))
+      (setq cha--story-description ""))))
 
 (defun clubhouse-api-prompt-for-story-type ()
   "Prompts for and returns a story type."
