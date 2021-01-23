@@ -324,7 +324,7 @@ The actual route to call is determined by `METHOD' and `PATH'.
                        (buffer-substring-no-properties (point)
                                                        (- end-of-contents 1))))
                   (cha--convert-org-mode-to-markdown
-                   (if (s-contains? ":LOGBOOK:" s)
+                   (if (s-contains? ":LOGBOOK:" s t)
                        (s-left (s-index-of ":LOGBOOK:" s) s)
                      s)))))
       (setq cha--story-description ""))))
