@@ -1,21 +1,21 @@
 * cha
-  Clubhouse integration for Emacs org-mode.
+Clubhouse integration for Emacs org-mode.
 
 ** Setup
-   #+begin_src elisp
-   (use-package cha
-     :straight (cha :type git :host github :repo "joncol/cha")
-     :after org
-     :config
-     (setq cha-clubhouse-api-auth-token "secret")
-     (setq cha-clubhouse-default-project "Backend"))
-   #+end_src
+#+begin_src elisp
+(use-package cha
+  :straight (cha :type git :host github :repo "joncol/cha")
+  :after org
+  :config
+  (setq cha-clubhouse-api-auth-token "secret")
+  (setq cha-clubhouse-default-project "Backend"))
+#+end_src
 
-   You need to set the ~cha-clubhouse-api-auth-token~ to a valid API token.
+You need to set the ~cha-clubhouse-api-auth-token~ to a valid API token.
 
 ** Usage
-   To create a new Clubhouse story, use ~M-x cha-create-story~.
+To create a new Clubhouse story, use ~M-x cha-create-story~.
 
 ** Screencast
-   The following shows an example of creating a story from an ~org-mode~ task.
-   [[./screencast1.gif]]
+The following shows an example of creating a story from an ~org-mode~ task.
+[[./screencast1.gif]]
