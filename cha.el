@@ -318,14 +318,15 @@ The actual route to call is determined by `METHOD' and `PATH'.
           ;; We're now at the beginning of the section text.
 
           ;; Convert the description to markdown format and cache it for later
-          ;; use.
+          ;; use. Assumes the `:LOGBOOK:' section comes at the start of the
+          ;; item.
           (setq cha--story-description
                 (let ((s
                        (buffer-substring-no-properties (point)
                                                        (- end-of-contents 1))))
                   (cha--convert-org-mode-to-markdown
                    (if (s-contains? ":LOGBOOK:" s t)
-                       (s-left (s-index-of ":LOGBOOK:" s) s)
+                       (s-right (- (length s) (s-index-of ":LOGBOOK:" s)) s)
                      s)))))
       (setq cha--story-description ""))))
 
